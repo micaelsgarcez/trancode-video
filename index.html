@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HLS Video Player with Media Chrome</title>
+    <style>
+      .player {
+        aspect-ratio: 9/16;
+        width: 900px;
+        border: 1px solid #ccc;
+      }
+    </style>
+  </head>
+  <body>
+    <script
+      type="module"
+      src="https://cdn.jsdelivr.net/npm/hls-video-element@1.1/+esm"
+    ></script>
+    <script
+      type="module"
+      src="https://cdn.jsdelivr.net/npm/media-chrome@4/+esm"
+    ></script>
+    <script
+      type="module"
+      src="https://cdn.jsdelivr.net/npm/media-chrome/menu@4/+esm"
+    ></script>
+
+    <div class="player">
+      <media-controller menu>
+        <!-- HLS video player element -->
+        <hls-video src="./output/dbngin/master.m3u8" slot="media"></hls-video>
+
+        <!-- Settings menu for playback speed, quality, and captions -->
+        <media-settings-menu hidden anchor="auto">
+          <!-- Speed control -->
+          <media-settings-menu-item>
+            Speed
+            <media-playback-rate-menu slot="submenu" hidden>
+              <div slot="title">Speed</div>
+            </media-playback-rate-menu>
+          </media-settings-menu-item>
+
+          <!-- Quality control -->
+          <media-settings-menu-item>
+            Quality
+            <media-rendition-menu slot="submenu" hidden>
+              <div slot="title">Quality</div>
+            </media-rendition-menu>
+          </media-settings-menu-item>
+        </media-settings-menu>
+
+        <!-- Media control bar -->
+        <media-control-bar>
+          <media-play-button></media-play-button>
+          <media-time-range></media-time-range>
+          <media-settings-menu-button></media-settings-menu-button>
+        </media-control-bar>
+      </media-controller>
+    </div>
+
+    <script type="module">
+      // Add event listener to ensure HLS quality and caption settings are available
+      document
+        .querySelector('hls-video')
+        .addEventListener('loadedmetadata', () => {
+          const hlsVideo = document.querySelector('hls-video')
+          console.log('video', hlsVideo)
+          const mediaRenditionMenu = document.querySelector(
+            'media-rendition-menu'
+          )
+          const mediaCaptionsMenu = document.querySelector(
+            'media-captions-menu'
+          )
+
+          // Assuming HLS video includes renditions and captions
+          // Here you could dynamically populate the quality and captions options if needed
+
+          // Example for setting the available quality levels
+          if (hlsVideo.hls) {
+            const qualityOptions = hlsVideo.hls.levels
+            console.log('qualityOptions', qualityOptions)
+            qualityOptions.forEach((level, index) => {
+              const option = document.createElement('media-rendition-menu-item')
+              option.setAttribute('label', `Quality ${index + 1}`)
+              option.setAttribute('value', level.id)
+              mediaRenditionMenu.appendChild(option)
+            })
+          }
+        })
+    </script>
+  </body>
+</html>
