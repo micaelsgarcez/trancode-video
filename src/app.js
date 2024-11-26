@@ -9,7 +9,7 @@ const app = express()
 const port = 3000
 
 const corsOptions = {
-  origin: ['*'], // Lista de origens permitidas
+  origin: '*', // Lista de origens permitidas
   methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos permitidos
   allowedHeaders: ['Content-Type', 'Authorization'] // Cabeçalhos permitidos
 }

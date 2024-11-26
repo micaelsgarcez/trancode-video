@@ -1,11 +1,18 @@
 import ffmpeg from 'fluent-ffmpeg'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { listRedisKeys } from '../utils/listRedisKeys.js'
 import { withResolvers } from '../utils/promiseUtils.js'
 import { generatePlaylist } from './playlistService.js'
 import { getResolution } from './resolutionService.js'
 
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { Redis } from '@upstash/redis'
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_TOKEN
+})
 
 // Configure o cliente S3 para o Cloudflare R2
 const S3 = new S3Client({
@@ -28,6 +35,25 @@ async function uploadToR2(bucketName, filePath, fileKey) {
 
   await S3.send(putCommand)
   console.log(`Uploaded ${fileKey} to Cloudflare R2`)
+  if (fileKey.indexOf('.m3u8') > -1) {
+    const response = await fetch(
+      'https://memberclass.com.br/api/webhook/video/new',
+      {
+        method: 'POST',
+        body: JSON.stringify([
+          {
+            lessonId: fileKey.split('/')[1],
+            size:
+              fileKey.indexOf('master.m3u8') > -1
+                ? 0
+                : Number(fileKey.split('_')[1].replace('p.m3u8', '')),
+            location: `https://stream.movimentohub.com.br/${fileKey}`
+          }
+        ])
+      }
+    )
+    console.log('response memberclass:', response.ok)
+  }
 }
 
 export async function transcode(input, preset) {
@@ -107,9 +133,9 @@ export async function processPresets(input) {
   const presets = [
     // { resolution: 2160, bitrate: 15000 },
     // { resolution: 1440, bitrate: 10000 },
-    { resolution: 1080, bitrate: 8000 }
+    // { resolution: 1080, bitrate: 8000 },
     // { resolution: 720, bitrate: 5000 },
-    // { resolution: 480, bitrate: 2500 }
+    { resolution: 480, bitrate: 2500 }
     //{ resolution: 360, bitrate: 1000 }
   ]
   const results = []
@@ -121,7 +147,6 @@ export async function processPresets(input) {
 
   // Gerar e fazer upload da playlist mestre para o R2
   const playlist = await generatePlaylist(results)
-  console.log('playlist :', playlist)
   const masterPlaylistPath = `./output/${path.basename(
     input.pathname,
     path.extname(input.pathname)
@@ -136,4 +161,12 @@ export async function processPresets(input) {
     masterPlaylistPath,
     masterR2Key
   )
+  await redis.del(`video-processing:${input.pathname.split('/').pop()}`)
+  const queueVideos = await listRedisKeys('video-queue')
+  if (queueVideos.length > 0) {
+    const videoUrl = await redis.get(queueVideos[0])
+    await redis.del(queueVideos[0])
+    await redis.set(`video-processing:${videoUrl.split('/').pop()}`, videoUrl)
+    processPresets({ pathname: videoUrl })
+  }
 }
