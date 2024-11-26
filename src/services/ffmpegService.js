@@ -82,9 +82,9 @@ export async function transcode(input, preset) {
       const segmentFiles = await fs.readdir(output_folder)
       for (const segmentFile of segmentFiles) {
         const segmentPath = path.join(output_folder, segmentFile)
-        const r2Key = `${input_filename.split('-')[0]}/${
-          input_filename.split('-')[1]
-        }/${segmentFile.split('-')[2]}` // Caminho no R2
+        const r2Key = `${
+          input.pathname.split('/')[3]
+        }/${input_filename}/${segmentFile}` // Caminho no R2
 
         await uploadToR2(bucketName, segmentPath, r2Key)
       }
@@ -107,29 +107,28 @@ export async function processPresets(input) {
   const presets = [
     // { resolution: 2160, bitrate: 15000 },
     // { resolution: 1440, bitrate: 10000 },
-    // { resolution: 1080, bitrate: 8000 },
+    { resolution: 1080, bitrate: 8000 }
     // { resolution: 720, bitrate: 5000 },
-    // { resolution: 480, bitrate: 2500 },
-    { resolution: 360, bitrate: 1000 }
+    // { resolution: 480, bitrate: 2500 }
+    //{ resolution: 360, bitrate: 1000 }
   ]
   const results = []
 
   for (const preset of presets) {
+    console.log('preset :', preset)
     results.push(await transcode(input, preset))
   }
 
   // Gerar e fazer upload da playlist mestre para o R2
   const playlist = await generatePlaylist(results)
+  console.log('playlist :', playlist)
   const masterPlaylistPath = `./output/${path.basename(
     input.pathname,
     path.extname(input.pathname)
   )}/master.m3u8`
   await fs.writeFile(masterPlaylistPath, playlist)
-
-  // Caminho no Cloudflare R2 para o arquivo master.m3u8
-  const pathname = path.basename(input.pathname, path.extname(input.pathname))
-  const masterR2Key = `${pathname.split('-')[0]}/${
-    pathname.split('-')[1]
+  const masterR2Key = `${input.pathname.split('/')[3]}/${
+    input.pathname.split('/')[4].split('.')[0]
   }/master.m3u8`
 
   await uploadToR2(

@@ -1,19 +1,30 @@
 // src/app.js
+import cors from 'cors'
 import express from 'express'
-import folderRoutes from './routes/folderRoutes.js' // Importa as rotas de vídeo
-import uploadUrlRoutes from './routes/uploadUrlRoutes.js' // Importa as rotas de vídeo
+import folderRoutes from './routes/folderRoutes.js' // Importa as rotas de pastas
+import uploadUrlRoutes from './routes/uploadUrlRoutes.js' // Importa as rotas de upload
 import videoRoutes from './routes/videoRoutes.js' // Importa as rotas de vídeo
 
 const app = express()
 const port = 3000
 
-app.use(express.json()) // Middleware para interpretar JSON
+const corsOptions = {
+  origin: ['*'], // Lista de origens permitidas
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos permitidos
+  allowedHeaders: ['Content-Type', 'Authorization'] // Cabeçalhos permitidos
+}
 
-// Usa as rotas de vídeo para o endpoint '/video'
+app.use(cors(corsOptions))
+
+// Middleware para interpretar JSON
+app.use(express.json())
+
+// Usa as rotas
 app.use('/video', videoRoutes)
 app.use('/', folderRoutes)
 app.use('/', uploadUrlRoutes)
 
+// Inicia o servidor
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`)
 })
