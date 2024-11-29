@@ -108,9 +108,7 @@ export async function transcode(input, preset) {
       const segmentFiles = await fs.readdir(output_folder)
       for (const segmentFile of segmentFiles) {
         const segmentPath = path.join(output_folder, segmentFile)
-        const r2Key = `${
-          input.pathname.split('/')[3]
-        }/${input_filename}/${segmentFile}` // Caminho no R2
+        const r2Key = `${input.tenantId}/${input.lessonId}/${segmentFile}` // Caminho no R2
 
         await uploadToR2(bucketName, segmentPath, r2Key)
       }
@@ -129,11 +127,11 @@ export async function transcode(input, preset) {
   return promise
 }
 
-export async function processPresets(input) {
+export async function processPresets(input, tenantId, lessonId) {
   const presets = [
     // { resolution: 2160, bitrate: 15000 },
     // { resolution: 1440, bitrate: 10000 },
-    // { resolution: 1080, bitrate: 8000 },
+    { resolution: 1080, bitrate: 8000 },
     // { resolution: 720, bitrate: 5000 },
     { resolution: 480, bitrate: 2500 }
     //{ resolution: 360, bitrate: 1000 }
@@ -142,7 +140,7 @@ export async function processPresets(input) {
 
   for (const preset of presets) {
     console.log('preset :', preset)
-    results.push(await transcode(input, preset))
+    results.push(await transcode({ ...input, tenantId, lessonId }, preset))
   }
 
   // Gerar e fazer upload da playlist mestre para o R2
@@ -152,21 +150,24 @@ export async function processPresets(input) {
     path.extname(input.pathname)
   )}/master.m3u8`
   await fs.writeFile(masterPlaylistPath, playlist)
-  const masterR2Key = `${input.pathname.split('/')[3]}/${
-    input.pathname.split('/')[4].split('.')[0]
-  }/master.m3u8`
+  const masterR2Key = `${tenantId}/${lessonId}/master.m3u8`
 
   await uploadToR2(
     process.env.CLOUDFLARE_R2_BUCKET_NAME,
     masterPlaylistPath,
     masterR2Key
   )
-  await redis.del(`video-processing:${input.pathname.split('/').pop()}`)
+  await redis.del(
+    `video-processing:${lessonId}.${input.pathname.split('.').pop()}`
+  )
   const queueVideos = await listRedisKeys('video-queue')
   if (queueVideos.length > 0) {
     const videoUrl = await redis.get(queueVideos[0])
     await redis.del(queueVideos[0])
-    await redis.set(`video-processing:${videoUrl.split('/').pop()}`, videoUrl)
+    await redis.set(
+      `video-processing:${lessonId}.${input.pathname.split('.').pop()}`,
+      videoUrl
+    )
     processPresets({ pathname: videoUrl })
   }
 }
